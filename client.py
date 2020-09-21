@@ -1,14 +1,15 @@
 import socket
 import tqdm
 import os
+import sys
 
 SEPARATOR = "<SEPARATOR>"
 BUFFER_SIZE = 4096 # send 4096 bytes each time step
 
-host = "localhost"
-port = 8800
-# the name of file we want to send, make sure it exists
-filename = "sas.txt"
+filename = sys.argv[1]
+host = sys.argv[2]
+port = sys.argv[3]
+
 # get the file size
 filesize = os.path.getsize(filename)
 
