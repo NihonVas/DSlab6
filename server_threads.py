@@ -5,34 +5,25 @@ import tqdm
 
 
 clients = []
-BUFFER_SIZE = 1024
-SEPARATOR = "<SEPARATOR>"
+BUFFER_SIZE = 4096
+SEPARATOR = "+=+"
 
 
-# Thread to listen one particular client
+# Thread to listen to one particular client
 class ClientListener(Thread):
     def __init__(self, name: str, sock: socket.socket):
         super().__init__(daemon=True)
         self.sock = sock
         self.name = name
 
-    # add 'me> ' to sended message
-    def _clear_echo(self, data):
-        # \033[F – symbol to move the cursor at the beginning of current line (Ctrl+A)
-        # \033[K – symbol to clear everything till the end of current line (Ctrl+K)
-        self.sock.sendall('\033[F\033[K'.encode())
-        # send the message back to user
-        self.sock.sendall(data)
-
-    # clean up
+    # close connection
     def _close(self):
         clients.remove(self.sock)
         self.sock.close()
         print(self.name + ' disconnected')
 
     def run(self):
-        # receive the file infos
-        # receive using client socket, not server socket
+        # receive the file
         received = self.sock.recv(BUFFER_SIZE).decode()
         filename, filesize = received.split(SEPARATOR)
         
@@ -43,22 +34,21 @@ class ClientListener(Thread):
             filename = filename + "." + part
         filename = filename[1:] + "_copy"
 
-        # check that such file exists
+        # check if such file exists and make another name
         i = 1
         while os.path.exists(filename + str(i) + "." + filename_parts[-1]):
             i = i+1
         filename = filename + str(i) + "." + filename_parts[-1]
 
         filename = os.path.basename(filename)
-        # convert to integer
+
         filesize = int(filesize)
 
-        # start receiving the file from the socket
-        # and writing to the file stream
+        # Write to the file stream
         progress = tqdm.tqdm(range(filesize), f"Receiving {filename}", unit="B", unit_scale=True, unit_divisor=1024)
         with open(filename, "wb") as f:
             for _ in progress:
-                # read 1024 bytes from the socket (receive)
+                # read bytes from the socket (receive)
                 bytes_read = self.sock.recv(BUFFER_SIZE)
                 if not bytes_read:    
                     # nothing is received
@@ -77,12 +67,15 @@ def main():
 
     # AF_INET – IPv4, SOCK_STREAM – TCP
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
     # reuse address; in OS address will be reserved after app closed for a while
     # so if we close and imidiatly start server again – we'll get error
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
     # listen to all interfaces at 8800 port
     sock.bind(('', 8800))
     sock.listen()
+    
     while True:
         # blocking call, waiting for new client to connect
         con, addr = sock.accept()
